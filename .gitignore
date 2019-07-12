@@ -6,3 +6,11 @@ __pycache__
 octave-workspace
 *.egg
 examples/.ipynb_checkpoints/
+
+idea/*
+
+
+#files
+states_actions.csv
+uncertainties_costs.csv
+uncertainties_trajectories.csv
