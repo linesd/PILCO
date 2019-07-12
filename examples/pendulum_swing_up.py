@@ -7,6 +7,8 @@ import tensorflow as tf
 from tensorflow import logging
 from utils import rollout, policy
 np.random.seed(0)
+from pilco.uncertainty import Uncertainty
+import matplotlib.pyplot as plt
 
 # NEEDS a different initialisation than the one in gym (change the reset() method),
 # to (m_init, S_init), modifying the gym env
@@ -47,14 +49,16 @@ S_init = np.diag([0.01, 0.05, 0.01])
 T = 40
 T_sim = T
 J = 4
-N = 8
+N = 12
 restarts = 2
 
 with tf.Session() as sess:
     env = myPendulum()
+    low = env.observation_space.low
+    high = env.observation_space.high
 
     # Initial random rollouts to generate a dataset
-    X,Y = rollout(env, None, timesteps=T, random=True, SUBS=SUBS)
+    X,Y = rollout(env, None, timesteps=T, verbose=False, random=True, SUBS=SUBS)
     for i in range(1,J):
         X_, Y_ = rollout(env, None, timesteps=T, random=True, SUBS=SUBS, verbose=True)
         X = np.vstack((X, X_))
@@ -69,15 +73,38 @@ with tf.Session() as sess:
 
     pilco = PILCO(X, Y, controller=controller, horizon=T, reward=R, m_init=m_init, S_init=S_init)
 
+    # uncertainty
+    uncertainty = Uncertainty(pilco, env, low, high)
+    uncertainties_costs=np.zeros((N, 5))
+    uncertainties_trajectories = np.zeros((N, 5))
+
     # for numerical stability
     for model in pilco.mgpr.models:
         model.likelihood.variance = 0.001
         model.likelihood.variance.trainable = False
 
-    for rollouts in range(N):
-        print("**** ITERATION no", rollouts, " ****")
+    for rol in range(N):
+        print("**** ITERATION no", rol, " ****")
         pilco.optimize_models(maxiter=maxiter, restarts=2)
         pilco.optimize_policy(maxiter=maxiter, restarts=2)
+
+        MSE = uncertainty.check_model_mse(X, Y)
+        print("MSE: ", MSE)
+        uncertainty.create_models(X, Y)
+        uncertainty.optimise_models()
+        trajectories= uncertainty.mc_rollout(M=50, N=50, T=40)
+        ave_cost, traj_costs = uncertainty.compute_cost(trajectories, target.reshape(-1, 1), 1)
+        total_t, aleatoric_t, epistemic_t = uncertainty.disentangle_trajectories(trajectories)
+        total_c, aleatoric_c, epistemic_c = uncertainty.disentangle_costs(traj_costs)
+        uncertainties_costs[rol, :] = [rol, total_c, aleatoric_c, epistemic_c, ave_cost]
+        uncertainties_trajectories[rol, :] = [rol, total_t, aleatoric_t, epistemic_t, ave_cost]
+        print("Trajectories: Iter: %i  Total: %.6f  Epistemic: %.6f  Aleatoric: %.6f  Cost1: %.6f" %
+              (rol, total_t, epistemic_t, aleatoric_t, ave_cost))
+        print("Costs: Iter: %i  Total: %.6f  Epistemic: %.6f  Aleatoric: %.6f  Cost1: %.6f" %
+              (rol, total_c, epistemic_c, aleatoric_c, ave_cost))
+        np.savetxt("states_actions.csv", X, delimiter=",")
+        np.savetxt("uncertainties_costs.csv", uncertainties_costs, delimiter=",")
+        np.savetxt("uncertainties_trajectories.csv", uncertainties_trajectories, delimiter=",")
 
         X_new, Y_new = rollout(env, pilco, timesteps=T_sim, verbose=True, SUBS=SUBS)
 

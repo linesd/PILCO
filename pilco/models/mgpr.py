@@ -75,7 +75,7 @@ class MGPR(gpflow.Parameterized):
         iK = tf.cholesky_solve(L, batched_eye)
         Y_ = tf.transpose(self.Y)[:, :, None]
         # Why do we transpose Y? Maybe we need to change the definition of self.Y() or beta?
-        beta = tf.cholesky_solve(L, Y_)[:, :, 0]
+        beta = tf.cholesky_solve(L, Y_)[:, :, 0] # beta from paper
         return iK, beta
 
     def predict_given_factorizations(self, m, s, iK, beta):
@@ -108,6 +108,8 @@ class MGPR(gpflow.Parameterized):
         V = tf.matmul(tiL, lb[:, :, None], adjoint_a=True)[..., 0] * c[:, None]
 
         # Calculate S: Predictive Covariance
+
+        # Equation 26
         R = s @ tf.matrix_diag(
                 1/tf.square(self.lengthscales[None, :, :]) +
                 1/tf.square(self.lengthscales[:, None, :])
@@ -116,7 +118,7 @@ class MGPR(gpflow.Parameterized):
         # TODO: change this block according to the PR of tensorflow. Maybe move it into a function?
         X = inp[None, :, :, :]/tf.square(self.lengthscales[:, None, None, :])
         X2 = -inp[:, None, :, :]/tf.square(self.lengthscales[None, :, None, :])
-        Q = tf.matrix_solve(R, s)/2
+        Q = tf.matrix_solve(R, s)/2 # EQuation 26
         Xs = tf.reduce_sum(X @ Q * X, -1)
         X2s = tf.reduce_sum(X2 @ Q * X2, -1)
         maha = -2 * tf.matmul(X @ Q, X2, adjoint_b=True) + \

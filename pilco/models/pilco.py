@@ -95,7 +95,7 @@ class PILCO(gpflow.models.Model):
             end = time.time()
             restarts -= 1
         best_parameters = self.read_values(session=session)
-        best_reward = self.compute_reward()
+        best_reward = self.compute_reward() # This ends up calling the predict on noisy inputs
         for restart in range(restarts):
             self.controller.randomize()
             start = time.time()
