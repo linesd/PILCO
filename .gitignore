@@ -8,7 +8,7 @@ octave-workspace
 examples/.ipynb_checkpoints/
 
 idea/*
-
+plots/*
 
 #files
 states_actions.csv

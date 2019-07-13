@@ -8,7 +8,7 @@ from tensorflow import logging
 from utils import rollout, policy
 np.random.seed(0)
 from pilco.uncertainty import Uncertainty
-import matplotlib.pyplot as plt
+from archiving.archive import archive_data
 
 # NEEDS a different initialisation than the one in gym (change the reset() method),
 # to (m_init, S_init), modifying the gym env
@@ -92,7 +92,7 @@ with tf.Session() as sess:
         print("MSE: ", MSE)
         uncertainty.create_models(X, Y)
         uncertainty.optimise_models()
-        trajectories= uncertainty.mc_rollout(M=50, N=50, T=40)
+        trajectories, trajectories_actions= uncertainty.mc_rollout(M=5, N=5, T=40)
         ave_cost, traj_costs = uncertainty.compute_cost(trajectories, target.reshape(-1, 1), 1)
         total_t, aleatoric_t, epistemic_t = uncertainty.disentangle_trajectories(trajectories)
         total_c, aleatoric_c, epistemic_c = uncertainty.disentangle_costs(traj_costs)
@@ -102,9 +102,8 @@ with tf.Session() as sess:
               (rol, total_t, epistemic_t, aleatoric_t, ave_cost))
         print("Costs: Iter: %i  Total: %.6f  Epistemic: %.6f  Aleatoric: %.6f  Cost1: %.6f" %
               (rol, total_c, epistemic_c, aleatoric_c, ave_cost))
-        np.savetxt("states_actions.csv", X, delimiter=",")
-        np.savetxt("uncertainties_costs.csv", uncertainties_costs, delimiter=",")
-        np.savetxt("uncertainties_trajectories.csv", uncertainties_trajectories, delimiter=",")
+
+        archive_data("", rol, X, trajectories_actions, traj_costs, uncertainties_trajectories, uncertainties_costs)
 
         X_new, Y_new = rollout(env, pilco, timesteps=T_sim, verbose=True, SUBS=SUBS)
 

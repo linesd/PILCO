@@ -40,23 +40,26 @@ class Uncertainty():
         self.N=N
         self.T=T
         trajectories = []
+        trajectories_actions = []
         for m in range(self.M):
             traj_m=[]
+            traj_a_m=[]
             W = self.get_weights()
             states = self.get_n_starts(self.N)
             traj_m.append(states.copy())
             for t in range(1, self.T):
                 states_actions = self.augment_actions(states.copy(),is_random=False)
+                traj_a_m.append(states_actions.copy())
                 delta_states = self.cascade(states_actions, W)
                 next_states = self.get_next_state(states, delta_states)
                 traj_m.append(next_states.copy())
                 states = next_states
             trajectories.append(traj_m)
-
+            trajectories_actions.append(traj_a_m)
             if m % 10 == 0:
                 print("Completed %i of %i MC rollouts" %(m*t*N, M*N*T))
 
-        return trajectories
+        return trajectories, trajectories_actions
 
     def get_weights(self):
         W = []
@@ -66,9 +69,23 @@ class Uncertainty():
 
     def get_n_starts(self, N):
         state = []
-        state.append(-1*np.ones((N, 1)))
-        state.append(np.zeros((N, 1)))
-        state.append(np.zeros((N, 1)))
+        # theta = np.random.normal(np.pi,1,size=(N, 1))
+        # state.append(np.cos(theta))
+        # state.append(np.sin(theta))
+        # state.append(np.random.uniform(-1,1,size=(N, 1)))
+        theta = np.random.normal(0, 0.2, size=(N, 1))
+        for i in range(len(theta)):
+            if theta[i] >= 0:
+                theta[i] -= np.pi
+            else:
+                theta[i] += np.pi
+
+        state.append(np.cos(theta))
+        state.append(np.sin(theta))
+        state.append(np.random.uniform(-0.5,0.5,size=(N, 1)))
+        # state.append(-1*np.ones((N, 1)))
+        # state.append(np.zeros((N, 1)))
+        # state.append(np.zeros((N, 1)))
         # theta = np.random.uniform(0, 2*np.pi, size=(N, 1))
         # state.append(np.cos(theta))
         # state.append(np.sin(theta))
